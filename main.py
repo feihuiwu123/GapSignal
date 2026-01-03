@@ -17,6 +17,7 @@ from app.api.data_fetcher import DataFetcher
 from app.core.data_processor import DataProcessor
 from app.api.binance_client import BinanceClient
 from app.web.app import app, get_processed_data
+from app.utils.telegram_notifier import telegram_notifier
 
 # Configure logging
 logging.basicConfig(
@@ -64,7 +65,21 @@ class GapSignalSystem:
             logger.info("Initializing data processor...")
             self.data_processor = DataProcessor(self.binance_client)
 
+            # Pre-load initial data to avoid empty cache on first page load
+            logger.info("Pre-loading initial data in background...")
+            from app.web.app import get_processed_data
+            import threading
+            threading.Thread(target=get_processed_data, kwargs={'force_refresh': True}, daemon=True).start()
+
             logger.info("System initialization complete")
+
+            # Send Telegram notification
+            try:
+                port = self.config.get('web_port', 6000)
+                telegram_notifier.notify_system_start(port)
+            except Exception as e:
+                logger.warning(f"Failed to send Telegram startup notification: {e}")
+
             return True
 
         except Exception as e:
@@ -118,6 +133,12 @@ class GapSignalSystem:
 
         logger.info("System stopped")
 
+        # Send Telegram notification
+        try:
+            telegram_notifier.notify_system_stop()
+        except Exception as e:
+            logger.warning(f"Failed to send Telegram shutdown notification: {e}")
+
     def print_status(self):
         """Print system status."""
         print("\n" + "=" * 60)
@@ -135,17 +156,17 @@ class GapSignalSystem:
         # System status
         print("\nSystem Status:")
         if self.binance_client:
-            print("  ✓ Binance client initialized")
+            print("  [OK] Binance client initialized")
         else:
-            print("  ✗ Binance client not initialized")
+            print("  [ERROR] Binance client not initialized")
 
         if self.data_fetcher:
             cache_stats = self.data_fetcher.get_cache_stats()
-            print(f"  ✓ Data fetcher initialized ({cache_stats['valid_entries']} cache entries)")
+            print(f"  [OK] Data fetcher initialized ({cache_stats['valid_entries']} cache entries)")
         else:
-            print("  ✗ Data fetcher not initialized")
+            print("  [ERROR] Data fetcher not initialized")
 
-        print(f"  ✓ Web server ready on port {self.config.get('web_port')}")
+        print(f"  [OK] Web server ready on port {self.config.get('web_port')}")
 
         print("\n" + "=" * 60)
 

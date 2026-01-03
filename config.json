@@ -1,6 +1,6 @@
 {
   "volume_threshold_usdt": 50000000,
-  "price_change_threshold_percent": 1.0,
+  "price_change_threshold_percent": 3.5,
   "default_kline_interval": "15m",
   "available_intervals": ["1m", "5m", "15m", "1h", "4h", "1d"],
   "signal_lookback_periods": 3,

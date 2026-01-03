@@ -16,6 +16,7 @@ from app.core.config import config
 from app.api.data_fetcher import DataFetcher
 from app.core.data_processor import DataProcessor
 from app.api.binance_client import BinanceClient
+from app.utils.telegram_notifier import telegram_notifier
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -50,8 +51,8 @@ def get_processed_data(force_refresh: bool = False) -> Dict[str, Any]:
         # Get filtered symbols
         filtered_symbols, all_ticker_data = data_fetcher.get_filtered_symbols()
 
-        # Extract symbol names
-        symbols = [s['symbol'] for s in filtered_symbols[:50]]  # Limit to 50 symbols for performance
+        # Extract symbol names - use all filtered symbols
+        symbols = [s['symbol'] for s in filtered_symbols]
 
         # Process symbols
         processed_data = data_processor.process_multiple_symbols(
@@ -64,6 +65,11 @@ def get_processed_data(force_refresh: bool = False) -> Dict[str, Any]:
 
         # Generate summary
         summary = data_processor.generate_summary(processed_data)
+
+        # Save previous cache for comparison
+        previous_cache = _data_cache
+        previous_buy_signals = previous_cache.get('buy_signals', []) if previous_cache else []
+        previous_sell_signals = previous_cache.get('sell_signals', []) if previous_cache else []
 
         # Cache results
         _data_cache = {
@@ -80,6 +86,40 @@ def get_processed_data(force_refresh: bool = False) -> Dict[str, Any]:
 
         logger.info(f"Data refresh complete: {len(processed_data)} symbols, "
                    f"{len(buy_signals)} buy signals, {len(sell_signals)} sell signals")
+
+        # Send Telegram notifications for new signals
+        if telegram_notifier.enabled:
+            try:
+                # Helper function to create signal signature for comparison
+                def get_signal_signature(signal):
+                    return f"{signal.get('symbol')}-{signal.get('confidence')}-{signal.get('current_price')}"
+
+                # Find new buy signals (not in previous cache)
+                previous_buy_set = {get_signal_signature(s) for s in previous_buy_signals}
+                new_buy_signals = [s for s in buy_signals if get_signal_signature(s) not in previous_buy_set]
+
+                # Find new sell signals (not in previous cache)
+                previous_sell_set = {get_signal_signature(s) for s in previous_sell_signals}
+                new_sell_signals = [s for s in sell_signals if get_signal_signature(s) not in previous_sell_set]
+
+                # Send notifications for new buy signals
+                for signal in new_buy_signals:
+                    telegram_notifier.notify_signal(signal, 'buy')
+                    time.sleep(0.5)  # Rate limiting
+
+                # Send notifications for new sell signals
+                for signal in new_sell_signals:
+                    telegram_notifier.notify_signal(signal, 'sell')
+                    time.sleep(0.5)  # Rate limiting
+
+                # Send summary if we have new signals
+                if new_buy_signals or new_sell_signals:
+                    telegram_notifier.notify_summary(summary, len(processed_data))
+                elif not previous_cache:  # First run, send summary even if no signals
+                    telegram_notifier.notify_summary(summary, len(processed_data))
+
+            except Exception as e:
+                logger.warning(f"Failed to send Telegram notifications: {e}")
 
         return _data_cache
 
