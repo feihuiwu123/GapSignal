@@ -3,7 +3,7 @@
   "price_change_threshold_percent": 3.5,
   "default_kline_interval": "15m",
   "available_intervals": ["1m", "5m", "15m", "1h", "4h", "1d"],
-  "signal_lookback_periods": 3,
+  "signal_lookback_periods": 2,
   "signal_cumulative_change_threshold_percent": 1.0,
   "web_port": 9000,
   "ema_periods": [20, 60, 120, 250]

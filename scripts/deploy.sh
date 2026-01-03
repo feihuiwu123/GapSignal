@@ -6,9 +6,14 @@ set -e
 
 # Configuration
 APP_NAME="gapsignal"
-APP_USER="www-data"
-APP_GROUP="www-data"
-APP_DIR="/opt/$APP_NAME"
+# Use current user for service
+if [[ -n "$SUDO_USER" ]]; then
+    APP_USER="$SUDO_USER"
+else
+    APP_USER="$(whoami)"
+fi
+APP_GROUP="$APP_USER"
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VENV_DIR="$APP_DIR/venv"
 LOG_DIR="/var/log/$APP_NAME"
 CONFIG_DIR="/etc/$APP_NAME"
@@ -48,6 +53,15 @@ check_root() {
 
 install_dependencies() {
     print_status "Installing system dependencies..."
+
+    # Check if apt/dpkg is locked
+    if lsof /var/lib/dpkg/lock-frontend 2>/dev/null | grep -q apt; then
+        print_warning "apt/dpkg is locked by another process. Skipping dependency installation."
+        print_warning "Please ensure the following packages are installed manually:"
+        print_warning "  python3 python3-pip python3-venv nginx supervisor git curl build-essential python3-dev"
+        return 0
+    fi
+
     apt-get update
     apt-get install -y \
         python3 \
@@ -65,18 +79,18 @@ install_dependencies() {
 setup_directories() {
     print_status "Setting up directories..."
 
-    # Create directories
-    mkdir -p "$APP_DIR"
+    # Create log and config directories
     mkdir -p "$LOG_DIR"
     mkdir -p "$CONFIG_DIR"
 
-    # Set permissions
-    chown -R $APP_USER:$APP_GROUP "$APP_DIR"
+    # Set permissions for log and config directories
     chown -R $APP_USER:$APP_GROUP "$LOG_DIR"
     chown -R $APP_USER:$APP_GROUP "$CONFIG_DIR"
 
-    chmod 755 "$APP_DIR"
     chmod 755 "$LOG_DIR"
+
+    # Ensure service user can read the application directory
+    setfacl -R -m u:$APP_USER:rx "$APP_DIR" 2>/dev/null || true
 
     print_success "Directories created"
 }
@@ -84,15 +98,26 @@ setup_directories() {
 setup_python_environment() {
     print_status "Setting up Python virtual environment..."
 
-    # Create virtual environment
-    sudo -u $APP_USER python3 -m venv "$VENV_DIR"
+    # Create virtual environment if it doesn't exist
+    if [[ ! -d "$VENV_DIR" ]]; then
+        sudo -u $APP_USER python3 -m venv "$VENV_DIR"
+        print_success "Virtual environment created at $VENV_DIR"
+    else
+        print_warning "Virtual environment already exists at $VENV_DIR"
+    fi
 
-    # Activate virtual environment and install dependencies
-    source "$VENV_DIR/bin/activate"
-    pip install --upgrade pip
-    pip install -r "$APP_DIR/requirements.txt"
-
-    print_success "Python environment setup complete"
+    # Install/upgrade dependencies as the service user
+    if [[ -f "$APP_DIR/requirements.txt" ]]; then
+        sudo -u $APP_USER bash -c "
+            source '$VENV_DIR/bin/activate' && \
+            pip install --upgrade pip && \
+            pip install -r '$APP_DIR/requirements.txt'
+        "
+        print_success "Python environment setup complete"
+    else
+        print_error "requirements.txt not found at $APP_DIR/requirements.txt"
+        exit 1
+    fi
 }
 
 setup_application() {
@@ -147,6 +172,16 @@ EOF
 setup_nginx() {
     print_status "Setting up Nginx reverse proxy..."
 
+    # Check if nginx is installed
+    if ! command -v nginx &>/dev/null; then
+        print_warning "Nginx is not installed. Skipping Nginx configuration."
+        print_warning "You can install it manually: apt-get install nginx"
+        return 0
+    fi
+
+    # Create Nginx configuration directory if it doesn't exist
+    mkdir -p "$(dirname "$NGINX_CONF")"
+
     # Create Nginx configuration
     cat > "$NGINX_CONF" << EOF
 server {
@@ -154,7 +189,7 @@ server {
     server_name _;
 
     location / {
-        proxy_pass http://127.0.0.1:6000;
+        proxy_pass http://127.0.0.1:9000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -200,6 +235,13 @@ EOF
 setup_firewall() {
     print_status "Configuring firewall..."
 
+    # Check if ufw is installed
+    if ! command -v ufw &>/dev/null; then
+        print_warning "ufw is not installed. Skipping firewall configuration."
+        print_warning "You can install it manually: apt-get install ufw"
+        return 0
+    fi
+
     # Allow SSH
     ufw allow 22/tcp
 
@@ -225,9 +267,11 @@ deploy_application() {
         sudo -u $APP_USER git pull origin main
     fi
 
-    # Install/update dependencies
-    source "$VENV_DIR/bin/activate"
-    pip install -r "$APP_DIR/requirements.txt"
+    # Install/update dependencies as the service user
+    sudo -u $APP_USER bash -c "
+        source '$VENV_DIR/bin/activate' && \
+        pip install -r '$APP_DIR/requirements.txt'
+    "
 
     # Start service
     systemctl start $APP_NAME

@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from app.core.config import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -105,6 +107,7 @@ class TelegramNotifier:
         Returns:
             Formatted message string
         """
+        port = config.get('web_port', 9000)
         symbol = signal_data.get('symbol', 'Unknown')
         current_price = signal_data.get('current_price', 0)
         confidence = signal_data.get('confidence', 0) * 100  # Convert to percentage
@@ -137,7 +140,7 @@ Trend: {signal_data.get('trend', 'neutral')}
 
 <b>Links:</b>
 • <a href="https://www.binance.com/en/futures/{symbol}">Binance Futures</a>
-• <a href="http://localhost:6000/detail/{symbol}">View Details</a>
+• <a href="http://localhost:{port}/detail/{symbol}">View Details</a>
         """
 
         return message.strip()
@@ -230,7 +233,7 @@ Please check the system logs and ensure all services are running.
 
         return self.send_message(message.strip())
 
-    def notify_system_start(self, port: int = 6000) -> bool:
+    def notify_system_start(self, port: int = 9000) -> bool:
         """
         Send system startup notification.
 

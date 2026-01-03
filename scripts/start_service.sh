@@ -49,7 +49,7 @@ if systemctl is-active --quiet "$APP_NAME"; then
     systemctl status "$APP_NAME" --no-pager
 
     echo ""
-    echo "Web interface: http://localhost:6000"
+    echo "Web interface: http://localhost:9000"
     echo "Or via Nginx: http://your-server-ip"
     echo ""
     echo "To view logs: journalctl -u $APP_NAME -f"
