@@ -24,6 +24,11 @@ function initDataTables() {
     const tables = document.querySelectorAll('.data-table');
     tables.forEach(table => {
         if (typeof $.fn.DataTable !== 'undefined') {
+            // Check if DataTable is already initialized on this table
+            if ($.fn.DataTable.isDataTable(table)) {
+                console.log('DataTable already initialized on', table.id || table.className);
+                return; // Skip initialization
+            }
             $(table).DataTable({
                 pageLength: 25,
                 lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],

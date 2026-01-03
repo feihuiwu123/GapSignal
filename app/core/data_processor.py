@@ -132,8 +132,8 @@ class DataProcessor:
                 'atr': atr,
                 'bollinger_bands': bb,
                 'macd': macd,
-                'volume_24h': None,  # Will be filled from ticker data
-                'price_change_24h': None,  # Will be filled from ticker data
+                'volume_24h': 0.0,  # Will be filled from ticker data
+                'price_change_24h': 0.0,  # Will be filled from ticker data
                 'timestamp': int(time.time())
             }
 

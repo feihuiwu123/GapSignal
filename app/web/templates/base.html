@@ -234,13 +234,7 @@
     {% block extra_js %}{% endblock %}
 
     <script>
-        // Initialize DataTables
         $(document).ready(function() {
-            $('.data-table').DataTable({
-                pageLength: 25,
-                order: [[5, 'desc']], // Sort by confidence by default
-                responsive: true
-            });
 
             // Auto-refresh every 5 minutes
             setTimeout(function() {
