@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block title %}{{ symbol }} - GapSignal Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    .indicator-card {
+        border-left: 4px solid var(--secondary-color);
+        margin-bottom: 15px;
+    }
+
+    .indicator-value {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin: 5px 0;
+    }
+
+    .indicator-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+
+    .signal-header {
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        color: white;
+    }
+
+    .signal-header.buy {
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+    }
+
+    .signal-header.sell {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+    }
+
+    .signal-header.none {
+        background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+    }
+
+    .metric-badge {
+        font-size: 0.9rem;
+        padding: 5px 10px;
+        margin: 2px;
+    }
+
+    .chart-container-detail {
+        width: 100%;
+        height: 600px;
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Signal Header -->
+        <div class="signal-header {{ data.signal }}">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-1">
+                        <i class="bi bi-{% if data.signal == 'buy' %}arrow-up-circle{% elif data.signal == 'sell' %}arrow-down-circle{% else %}dash-circle{% endif %}"></i>
+                        {{ symbol }}
+                        <span class="badge bg-{% if data.signal == 'buy' %}success{% elif data.signal == 'sell' %}danger{% else %}secondary{% endif %} ms-2">
+                            {{ data.signal|upper if data.signal else 'NO SIGNAL' }}
+                        </span>
+                    </h2>
+                    <p class="mb-0">
+                        Current Price: <strong>${{ "%.4f"|format(data.current_price) }}</strong> |
+                        24H Change:
+                        <span class="{{ 'positive' if data.price_change_24h > 0 else 'negative' if data.price_change_24h < 0 }}">
+                            {{ "%+.2f"|format(data.price_change_24h|default(0)) }}%
+                        </span>
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="{{ binance_url }}" target="_blank" class="btn btn-warning btn-lg">
+                        <i class="bi bi-box-arrow-up-right"></i> Trade on Binance
+                    </a>
+                    <a href="/" class="btn btn-outline-light btn-lg ms-2">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-graph-up"></i> Price Chart with EMA Indicators
+            </div>
+            <div class="card-body">
+                <div id="chart-container" class="chart-container-detail"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Indicators Row -->
+<div class="row mt-4">
+    <!-- Signal Details -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-lightning-charge"></i> Signal Details
+            </div>
+            <div class="card-body">
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">Signal Confidence</div>
+                    <div class="indicator-value text-{% if data.signal == 'buy' %}success{% elif data.signal == 'sell' %}danger{% else %}secondary{% endif %}">
+                        {{ "%.1f"|format(data.confidence * 100) }}%
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-{% if data.signal == 'buy' %}success{% elif data.signal == 'sell' %}danger{% else %}secondary{% endif %}"
+                             role="progressbar"
+                             style="width: {{ (data.confidence * 100)|int }}%">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">Cumulative Change ({{ data.signal_details.lookback_periods }} candles)</div>
+                    <div class="indicator-value {{ 'positive' if data.cumulative_change > 0 else 'negative' if data.cumulative_change < 0 }}">
+                        {{ "%+.2f"|format(data.cumulative_change|default(0)) }}%
+                    </div>
+                    <small>Threshold: {{ data.signal_details.change_threshold }}%</small>
+                </div>
+
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">Price Sequences</div>
+                    <div class="row">
+                        <div class="col-4">
+                            <small>Low:</small><br>
+                            <span class="badge bg-{% if data.signal_details.low_sequence == 'increasing' %}success{% elif data.signal_details.low_sequence == 'decreasing' %}danger{% else %}secondary{% endif %} metric-badge">
+                                {{ data.signal_details.low_sequence|title }}
+                            </span>
+                        </div>
+                        <div class="col-4">
+                            <small>Close:</small><br>
+                            <span class="badge bg-{% if data.signal_details.close_sequence == 'increasing' %}success{% elif data.signal_details.close_sequence == 'decreasing' %}danger{% else %}secondary{% endif %} metric-badge">
+                                {{ data.signal_details.close_sequence|title }}
+                            </span>
+                        </div>
+                        <div class="col-4">
+                            <small>High:</small><br>
+                            <span class="badge bg-{% if data.signal_details.high_sequence == 'increasing' %}success{% elif data.signal_details.high_sequence == 'decreasing' %}danger{% else %}secondary{% endif %} metric-badge">
+                                {{ data.signal_details.high_sequence|title }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">Trend Analysis</div>
+                    <div class="indicator-value">
+                        {% if data.trend == 'strong_bullish' %}
+                            <span class="badge bg-success">STRONG BULLISH</span>
+                        {% elif data.trend == 'bullish' %}
+                            <span class="badge bg-success">BULLISH</span>
+                        {% elif data.trend == 'strong_bearish' %}
+                            <span class="badge bg-danger">STRONG BEARISH</span>
+                        {% elif data.trend == 'bearish' %}
+                            <span class="badge bg-danger">BEARISH</span>
+                        {% else %}
+                            <span class="badge bg-secondary">NEUTRAL</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EMA Differences -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-speedometer"></i> EMA Analysis
+            </div>
+            <div class="card-body">
+                {% for period in [20, 60, 120, 250] %}
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">EMA{{ period }} Difference</div>
+                    <div class="row align-items-center">
+                        <div class="col-6">
+                            <div class="indicator-value {{ 'positive' if data.ema_differences[period] > 0 else 'negative' if data.ema_differences[period] < 0 }}">
+                                {{ "%+.2f"|format(data.ema_differences[period]|default(0)) }}%
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <small>EMA Value:</small><br>
+                            <strong>${{ "%.4f"|format(data.ema_values[period]|default(0)) }}</strong>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 8px; margin-top: 5px;">
+                        {% set diff = data.ema_differences[period]|default(0) %}
+                        {% set width = (diff|abs * 2)|int %}
+                        {% set width = width if width <= 100 else 100 %}
+                        <div class="progress-bar {{ 'bg-success' if diff > 0 else 'bg-danger' }}"
+                             role="progressbar"
+                             style="width: {{ width }}%">
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Technical Indicators -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-bar-chart"></i> Technical Indicators
+            </div>
+            <div class="card-body">
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">RSI (14)</div>
+                    <div class="indicator-value">
+                        {% set rsi = data.rsi|default(50) %}
+                        {% if rsi > 70 %}
+                            <span class="badge bg-danger">OVERBOUGHT {{ "%.1f"|format(rsi) }}</span>
+                        {% elif rsi < 30 %}
+                            <span class="badge bg-success">OVERSOLD {{ "%.1f"|format(rsi) }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">NEUTRAL {{ "%.1f"|format(rsi) }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">Average True Range (ATR)</div>
+                    <div class="indicator-value">
+                        ${{ "%.4f"|format(data.atr|default(0)) }}
+                    </div>
+                    <small>Volatility measure</small>
+                </div>
+
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">Bollinger Bands</div>
+                    <div class="row">
+                        <div class="col-4">
+                            <small>Upper:</small><br>
+                            <strong>${{ "%.4f"|format(data.bollinger_bands.upper|default(0)) }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small>Middle:</small><br>
+                            <strong>${{ "%.4f"|format(data.bollinger_bands.middle|default(0)) }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small>Lower:</small><br>
+                            <strong>${{ "%.4f"|format(data.bollinger_bands.lower|default(0)) }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">MACD</div>
+                    <div class="row">
+                        <div class="col-4">
+                            <small>MACD:</small><br>
+                            <strong>{{ "%.4f"|format(data.macd.macd|default(0)) }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small>Signal:</small><br>
+                            <strong>{{ "%.4f"|format(data.macd.signal|default(0)) }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small>Hist:</small><br>
+                            <strong class="{{ 'positive' if data.macd.histogram|default(0) > 0 else 'negative' }}">
+                                {{ "%+.4f"|format(data.macd.histogram|default(0)) }}
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+
+                {% if data.volume_24h %}
+                <div class="indicator-card p-3">
+                    <div class="indicator-label">24H Volume</div>
+                    <div class="indicator-value text-warning">
+                        ${{ "%.2fM"|format(data.volume_24h / 1000000) }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trading Recommendations -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-lightbulb"></i> Trading Considerations
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Strengths</h5>
+                        <ul>
+                            {% if data.signal == 'buy' and data.confidence > 0.7 %}
+                            <li>Strong buy signal with high confidence ({{ "%.1f"|format(data.confidence * 100) }}%)</li>
+                            {% endif %}
+                            {% if data.trend in ['bullish', 'strong_bullish'] %}
+                            <li>Bullish trend alignment</li>
+                            {% endif %}
+                            {% if data.volume_24h and data.volume_24h > 100000000 %}
+                            <li>High liquidity (>$100M 24h volume)</li>
+                            {% endif %}
+                            {% if data.rsi and data.rsi < 30 %}
+                            <li>Oversold conditions (RSI: {{ "%.1f"|format(data.rsi) }})</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Risks & Considerations</h5>
+                        <ul>
+                            {% if data.atr and data.atr > data.current_price * 0.02 %}
+                            <li>High volatility (ATR: {{ "%.2f"|format(data.atr) }})</li>
+                            {% endif %}
+                            {% if data.rsi and data.rsi > 70 %}
+                            <li>Overbought conditions (RSI: {{ "%.1f"|format(data.rsi) }})</li>
+                            {% endif %}
+                            {% if data.price_change_24h and data.price_change_24h|abs > 5 %}
+                            <li>Large 24h price move ({{ "%+.2f"|format(data.price_change_24h) }}%)</li>
+                            {% endif %}
+                            <li>Always use proper risk management</li>
+                            <li>Consider market conditions and news</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load the chart
+    document.addEventListener('DOMContentLoaded', function() {
+        const chartJson = {{ chart_json|safe }};
+        const chartData = JSON.parse(chartJson);
+
+        Plotly.newPlot('chart-container', chartData.data, chartData.layout, {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ['sendDataToCloud', 'autoScale2d', 'resetScale2d']
+        });
+
+        // Update chart on window resize
+        window.addEventListener('resize', function() {
+            Plotly.Plots.resize('chart-container');
+        });
+    });
+
+    // Format numbers in tables
+    $(document).ready(function() {
+        $('.data-table').DataTable({
+            pageLength: 10,
+            responsive: true
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}GapSignal Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-speedometer2"></i> System Summary
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3 summary-card">
+                        <div class="summary-label">Total Symbols</div>
+                        <div class="summary-value text-primary">{{ summary.total_symbols|default(0) }}</div>
+                    </div>
+                    <div class="col-md-3 summary-card">
+                        <div class="summary-label">Buy Signals</div>
+                        <div class="summary-value text-success">{{ summary.buy_signals|default(0) }}</div>
+                    </div>
+                    <div class="col-md-3 summary-card">
+                        <div class="summary-label">Sell Signals</div>
+                        <div class="summary-value text-danger">{{ summary.sell_signals|default(0) }}</div>
+                    </div>
+                    <div class="col-md-3 summary-card">
+                        <div class="summary-label">Avg Volume</div>
+                        <div class="summary-value text-warning">
+                            {% if summary.avg_volume %}
+                                ${{ "%.2fM"|format(summary.avg_volume / 1000000) }}
+                            {% else %}
+                                $0
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Buy Signals -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-arrow-up-circle"></i> Buy Signals ({{ buy_signals|length }})
+            </div>
+            <div class="card-body">
+                {% if buy_signals %}
+                    <div class="table-responsive">
+                        <table class="table table-hover data-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Price</th>
+                                    <th>24H Volume</th>
+                                    <th>Confidence</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for signal in buy_signals %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ signal.symbol }}</strong>
+                                    </td>
+                                    <td>${{ "%.4f"|format(signal.current_price) }}</td>
+                                    <td>
+                                        {% if signal.volume_24h %}
+                                            ${{ "%.2fM"|format(signal.volume_24h / 1000000) }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress confidence-bar">
+                                            <div class="progress-bar bg-success" role="progressbar"
+                                                 style="width: {{ (signal.confidence * 100)|int }}%"
+                                                 aria-valuenow="{{ signal.confidence }}" aria-valuemin="0" aria-valuemax="100">
+                                                {{ "%.1f"|format(signal.confidence * 100) }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="/detail/{{ signal.symbol }}" class="btn btn-sm btn-outline-success">
+                                            <i class="bi bi-graph-up"></i> View
+                                        </a>
+                                        <a href="https://www.binance.com/en/futures/{{ signal.symbol }}"
+                                           target="_blank" class="btn btn-sm btn-outline-warning">
+                                            <i class="bi bi-box-arrow-up-right"></i> Binance
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-emoji-frown display-4 text-muted"></i>
+                        <h5 class="mt-3">No buy signals detected</h5>
+                        <p class="text-muted">Try refreshing the data or adjust filter thresholds.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sell Signals -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-arrow-down-circle"></i> Sell Signals ({{ sell_signals|length }})
+            </div>
+            <div class="card-body">
+                {% if sell_signals %}
+                    <div class="table-responsive">
+                        <table class="table table-hover data-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Price</th>
+                                    <th>24H Volume</th>
+                                    <th>Confidence</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for signal in sell_signals %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ signal.symbol }}</strong>
+                                    </td>
+                                    <td>${{ "%.4f"|format(signal.current_price) }}</td>
+                                    <td>
+                                        {% if signal.volume_24h %}
+                                            ${{ "%.2fM"|format(signal.volume_24h / 1000000) }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress confidence-bar">
+                                            <div class="progress-bar bg-danger" role="progressbar"
+                                                 style="width: {{ (signal.confidence * 100)|int }}%"
+                                                 aria-valuenow="{{ signal.confidence }}" aria-valuemin="0" aria-valuemax="100">
+                                                {{ "%.1f"|format(signal.confidence * 100) }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="/detail/{{ signal.symbol }}" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-graph-down"></i> View
+                                        </a>
+                                        <a href="https://www.binance.com/en/futures/{{ signal.symbol }}"
+                                           target="_blank" class="btn btn-sm btn-outline-warning">
+                                            <i class="bi bi-box-arrow-up-right"></i> Binance
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-emoji-frown display-4 text-muted"></i>
+                        <h5 class="mt-3">No sell signals detected</h5>
+                        <p class="text-muted">Try refreshing the data or adjust filter thresholds.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Symbols Table -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-table"></i> All Filtered Symbols ({{ processed_data|length }})
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover data-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Current Price</th>
+                                <th>24H Volume</th>
+                                <th>24H Change</th>
+                                <th>Signal</th>
+                                <th>Confidence</th>
+                                <th>EMA20 Diff</th>
+                                <th>EMA60 Diff</th>
+                                <th>EMA120 Diff</th>
+                                <th>EMA250 Diff</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in processed_data %}
+                            <tr>
+                                <td>
+                                    <strong>{{ item.symbol }}</strong>
+                                </td>
+                                <td>${{ "%.4f"|format(item.current_price) }}</td>
+                                <td>
+                                    {% if item.volume_24h %}
+                                        ${{ "%.2fM"|format(item.volume_24h / 1000000) }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td class="{{ 'positive' if item.price_change_24h > 0 else 'negative' if item.price_change_24h < 0 }}">
+                                    {% if item.price_change_24h is not none %}
+                                        {{ "%+.2f"|format(item.price_change_24h) }}%
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item.signal == 'buy' %}
+                                        <span class="badge badge-buy">BUY</span>
+                                    {% elif item.signal == 'sell' %}
+                                        <span class="badge badge-sell">SELL</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">NONE</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="progress confidence-bar" style="height: 10px;">
+                                        <div class="progress-bar
+                                            {% if item.signal == 'buy' %}bg-success
+                                            {% elif item.signal == 'sell' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}"
+                                            role="progressbar"
+                                            style="width: {{ (item.confidence * 100)|int }}%"
+                                            aria-valuenow="{{ item.confidence }}"
+                                            aria-valuemin="0"
+                                            aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <small>{{ "%.1f"|format(item.confidence * 100) }}%</small>
+                                </td>
+                                <td class="{{ 'positive' if item.ema_differences.20 > 0 else 'negative' if item.ema_differences.20 < 0 }}">
+                                    {{ "%+.2f"|format(item.ema_differences.20|default(0)) }}%
+                                </td>
+                                <td class="{{ 'positive' if item.ema_differences.60 > 0 else 'negative' if item.ema_differences.60 < 0 }}">
+                                    {{ "%+.2f"|format(item.ema_differences.60|default(0)) }}%
+                                </td>
+                                <td class="{{ 'positive' if item.ema_differences.120 > 0 else 'negative' if item.ema_differences.120 < 0 }}">
+                                    {{ "%+.2f"|format(item.ema_differences.120|default(0)) }}%
+                                </td>
+                                <td class="{{ 'positive' if item.ema_differences.250 > 0 else 'negative' if item.ema_differences.250 < 0 }}">
+                                    {{ "%+.2f"|format(item.ema_differences.250|default(0)) }}%
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="/detail/{{ item.symbol }}" class="btn btn-outline-primary">
+                                            <i class="bi bi-graph-up"></i> Chart
+                                        </a>
+                                        <a href="https://www.binance.com/en/futures/{{ item.symbol }}"
+                                           target="_blank" class="btn btn-outline-warning">
+                                            <i class="bi bi-box-arrow-up-right"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Configuration Info -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-gear"></i> Current Configuration
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Volume Threshold:</strong><br>
+                        ${{ "%.0fM"|format(config.get('volume_threshold_usdt', 50000000) / 1000000) }} USDT
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Price Change Threshold:</strong><br>
+                        {{ config.get('price_change_threshold_percent', 1.0) }}%
+                    </div>
+                    <div class="col-md-3">
+                        <strong>K-line Interval:</strong><br>
+                        {{ config.get('default_kline_interval', '15m') }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Lookback Periods:</strong><br>
+                        {{ config.get('signal_lookback_periods', 3) }} candles
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
